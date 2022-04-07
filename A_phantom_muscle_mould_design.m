@@ -12,13 +12,14 @@ saveFolder_mat=fullfile(projectFolder,'data','mould_mat');
 saveNameGeom_tf='BodyParts3D_right_leg_transfemoral_amp_muscle_mould';
 
 saveOn=1;
+green = 1/255*[0, 100, 0];
 
 %Geometric parameters
 pointSpacing=5;
 scaleFactor=[1.1 1.1 1.01];
 scaleFactor1=[1.5 1.5 1];
-
-
+CutHeight=30;
+StandHeight=50;
 select_amputation_case='tf';
 switch select_amputation_case
      case 'tf'
@@ -45,8 +46,7 @@ switch select_amputation_case
         %Skin
         F_skin=F{2};
         V_skin=V{2};
-        
-        
+
         %Femur
         F_femur=F{1};
         V_femur=V{1};
@@ -84,37 +84,37 @@ switch select_amputation_case
         V_cylinder1(:,2)=V_cylinder1(:,2)+8;
         V_cylinder2=V_cylinder*R2+mean(Vc,1);
         V_cylinder2(:,1)=V_cylinder1(:,2)-5;
-        V_cylinder2(:,3)=V_cylinder2(:,3)-3*inputStruct.cylRadius;
-        %%
+        
+        F_cylinder2=fliplr(F_cylinder);
+        F_cylinder1=F_cylinder;
+        
         % Visualize surface and landmarks
         cFigure; hold on;
-        gpatch(F_femur,V_femur,'w','k',0.5);
-        gpatch(F_muscle,V_muscle,'w','k',0.5);
-        gpatch(F_skin,V_skin,'w','k',0.5);
-        plotV(Vc,'b-','LineWidth',4);
-        plotV(mean(Vc,1),'b.','Markersize',30);
+        gpatch(F_femur,V_femur,'b','none',0.5);
+        gpatch(F_muscle,V_muscle,'r','none',0.5);
+        gpatch(F_skin,V_skin,green,'none',0.5);
+        plotV(Vc,'k-','LineWidth',4);
+       
+        gpatch(F_cylinder1,V_cylinder1,'w','none',1);
+        patchNormPlot(F_cylinder1,V_cylinder1);
         
-        gpatch(F_cylinder,V_cylinder1,'gw','g',1);
-        patchNormPlot(F_cylinder,V_cylinder1);
+        gpatch(F_cylinder2,V_cylinder2,'w','none',1);
+        %patchNormPlot(F_cylinder2,V_cylinder2);
         
-        gpatch(F_cylinder,V_cylinder2,'gw','g',1);
-        patchNormPlot(F_cylinder,V_cylinder2);
-        
-        axisGeom; camlight headlight;
+        axisGeom; axis off; camlight headlight;
         gdrawnow;
 
-        %% Create holes within the femur to accomodate retractable cylinders
         % Find the intersection between cylinders and femur
         % Delete intersected points from the femur mesh
-        
+
         %% First cylinder
         pointSpacing=mean(patchEdgeLengths(F_femur,V_femur));
         voxelSize=pointSpacing;
         [regionLabel_implant]=simplexImIntersect(F_femur,V_femur,[],V_cylinder1,voxelSize);
         logicOut_implant=~(~isnan(regionLabel_implant));
-        logicFacesOut_implant=all(logicOut_implant(F_cylinder),2);
+        logicFacesOut_implant=all(logicOut_implant(F_cylinder1),2);
         
-        [regionLabel_bone]=simplexImIntersect(F_cylinder,V_cylinder1,[],V_femur,voxelSize);
+        [regionLabel_bone]=simplexImIntersect(F_cylinder1,V_cylinder1,[],V_femur,voxelSize);
         logicOut_bone=isnan(regionLabel_bone);
         logicFacesOut_bone=all(logicOut_bone(F_femur),2);
         
@@ -122,6 +122,7 @@ switch select_amputation_case
         F1=F_femur(logicFacesOut_bone,:);
         V1=V_femur;
         [F1,V1]=patchCleanUnused(F1,V1);
+        
         Eb=patchBoundary(F1,V1);
         groupStruct.outputType='label';
         [G,~,groupSize]=tesgroup(Eb,groupStruct); 
@@ -130,30 +131,16 @@ switch select_amputation_case
         E1=Eb(logicKeep,:);
         indCurve1=edgeListToCurve(E1);
         indCurve1=indCurve1(1:end-1);
-        Vc1=V1(indCurve1,:);
         
         %[~,indKeep]=min(groupSize);
         logicKeep=G~=indKeep;
         E1=Eb(logicKeep,:);
         indCurve2=edgeListToCurve(E1);
         indCurve2=indCurve2(1:end-1);
-        Vc2=V1(indCurve2,:);
 
-        % Visualization
-        cFigure; hold on;
-        gpatch(F1,V1,'w','k',1);
-        
-        plotV(Vc2,'g.-','LineWidth',1);        
-        plotV(Vc1,'r.-','LineWidth',1);
-%         
-        axisGeom;
-        camlight headlight;
-        icolorbar;
-        drawnow;
-
-        logicFacesIn_implant=all(~logicOut_implant(F_cylinder),2);
-        logicFacesIn_implant=triSurfLogicSharpFix(F_cylinder,logicFacesIn_implant,3);
-        F2=F_cylinder(logicFacesIn_implant,:);
+        logicFacesIn_implant=all(~logicOut_implant(F_cylinder1),2);
+        logicFacesIn_implant=triSurfLogicSharpFix(F_cylinder1,logicFacesIn_implant,3);
+        F2=F_cylinder1(logicFacesIn_implant,:);
         V2=V_cylinder1;
         [F2,V2]=patchCleanUnused(F2,V2);
         clear cParSmooth;
@@ -169,103 +156,291 @@ switch select_amputation_case
         E2=Eb(logicKeep,:);
         indCurve3=edgeListToCurve(E2);
         indCurve3=indCurve3(1:end-1);
-        Vc3=V2(indCurve3,:);
         
         [~,indKeep]=min(groupSize);
         logicKeep=G==indKeep;
         E2=Eb(logicKeep,:);
         indCurve4=edgeListToCurve(E2);
         indCurve4=indCurve4(1:end-1);
-        Vc4=V2(indCurve4,:);
         
         %Visualization
         cFigure; hold on;
-        gpatch(F1,V1,'w','k',1);
+        gpatch(F1,V1,'w','k',0.25);
         
-        plotV(V1(indCurve2,:),'g.-','LineWidth',1);
-        plotV(V2(indCurve3,:),'m.-','LineWidth',1);
+        plotV(V1(indCurve2,:),'k.-','LineWidth',3);
+        plotV(V2(indCurve3,:),'r.-','LineWidth',3);
         
-        plotV(V1(indCurve1,:),'r.-','LineWidth',1);
-        plotV(V2(indCurve4,:),'c.-','LineWidth',1);
+        plotV(V1(indCurve1,:),'k.-','LineWidth',3);
+        plotV(V2(indCurve4,:),'r.-','LineWidth',3);
         gpatch(F2,V2,'r','k',1)
+        gpatch(F_cylinder1,V_cylinder1,'w','none',0.25)
+        
 %         
-        axisGeom;
+        axisGeom;axis off;
         camlight headlight;
-        icolorbar;
         drawnow;
 
-        % Closing up holes between cut cylinders and holes withing the
-        % femur
-        [~,indMin]=minDist(V1(indCurve1,:),V2(indCurve3,:));
-        
-        if indMin>1
-            indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
-        end
-        
-        [~,indMin]=minDist(V1(indCurve2,:),V2(indCurve4,:));
-        
-        if indMin>1
-            indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
-        end
+        %Find closer curve for lofting
+        D1=min(minDist(V1(indCurve1,:),V2(indCurve3,:)));
+        D2=min(minDist(V1(indCurve1,:),V2(indCurve4,:)));
 
+        %Reorder curves
+        if D2<D1
+            [~,indMin]=minDist(V1(indCurve1(1),:),V2(indCurve4,:));
         
-        [Fh,Vh]=regionTriMesh3D({V1(indCurve1,:),V2(indCurve3,:)},pointSpacing,0,'natural');
-        [Fh1,Vh1]=regionTriMesh3D({V1(indCurve2,:),V2(indCurve4,:)},pointSpacing,0,'natural');
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            [Fh,Vh]=regionTriMesh3D({V1(indCurve1,:),V2(indCurve4,:)},pointSpacing,0,'natural');
+        else
+            [~,indMin]=minDist(V1(indCurve1(1),:),V2(indCurve3,:));
         
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            [Fh,Vh]=regionTriMesh3D({V1(indCurve1,:),V2(indCurve3,:)},pointSpacing,0,'natural');
+        end
+        
+        %Find closer curve for lofting
+        D1=min(minDist(V1(indCurve2,:),V2(indCurve3,:)));
+        D2=min(minDist(V1(indCurve2,:),V2(indCurve4,:)));
+
+        %Reorder curves
+        if D2<D1
+            [~,indMin]=minDist(V1(indCurve2(1),:),V2(indCurve4,:));            
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            [Fh1,Vh1]=regionTriMesh3D({V1(indCurve2,:),V2(indCurve4,:)},pointSpacing,0,'natural');
+        else
+           [~,indMin]=minDist(V1(indCurve2(1),:),V2(indCurve3,:));            
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            [Fh1,Vh1]=regionTriMesh3D({V1(indCurve2,:),V2(indCurve3,:)},pointSpacing,0,'natural');
+        end
+        
+% 
+%         %Visualization
+%         cFigure; hold on;
+%         gpatch(F1,V1,'w','k',1);
+%         
+%         plotV(V1(indCurve2,:),'g.-','LineWidth',5);
+%         plotV(V2(indCurve3,:),'m.-','LineWidth',5);
+%         
+%         plotV(V1(indCurve1,:),'r.-','LineWidth',5);
+%         plotV(V2(indCurve4,:),'c.-','LineWidth',5);
+%         gpatch(F2,V2,'w','k',1)
+% %         
+%         axisGeom;
+%         camlight headlight;
+%         icolorbar;
+%         drawnow;
+        
+
         %Visualization
         cFigure; hold on;
-        gpatch(F1,V1,'y','k',1);
-        patchNormPlot(F1,V1);
-        %plotV(V1(indCurve2,:),'c.-','LineWidth',1);
-        %plotV(V2(indCurve3,:),'c.-','LineWidth',1);
-        
-        gpatch(F2,V2,'r','k',1)
-        patchNormPlot(fliplr(F2),V2);
-        gpatch(Fh,Vh,'w','k',1);
-        patchNormPlot(fliplr(Fh),Vh);
-        
-        plotV(V1(indCurve2,:),'g.-','LineWidth',1);
-        plotV(V2(indCurve4,:),'g.-','LineWidth',1);
-        gpatch(Fh1,Vh1,'w','k',1);
-        patchNormPlot(Fh1,Vh1);       
+        gpatch(F1,V1,'w','k',0.25);
+        %patchNormPlot(F1,V1);
 
-        axisGeom;
+        gpatch(Fh,Vh,'g','k',1);
+        %patchNormPlot(fliplr(Fh),Vh);
+
+        gpatch(Fh1,Vh1,'r','k',1);
+        %patchNormPlot(Fh1,Vh1);  
+
+        axisGeom;axis off;
         camlight headlight;
-        icolorbar;
         drawnow;
 
         %
-        [Ff1,Vf1]=joinElementSets({F1,fliplr(F2),fliplr(Fh),Fh1},{V1,V2,Vh,Vh1});
+        [Ff1,Vf1]=joinElementSets({F1,fliplr(Fh),Fh1},{V1,Vh,Vh1});
         [Ff1,Vf1]=patchCleanUnused(Ff1,Vf1);
         [Ff1,Vf1]=mergeVertices(Ff1,Vf1);
 
-        %Visualization
-        cFigure; hold on;
-        gpatch(Ff1,Vf1,'y','k',1);
-        patchNormPlot(Ff1,Vf1);  
         
-        %gpatch(F_cylinder,V_cylinder1,'w','k',1);
-        %patchNormPlot(F_cylinder,V_cylinder1); 
-        axisGeom;
+        Eb=patchBoundary(Ff1,Vf1);
+        groupStruct.outputType='label';
+        [G,~,groupSize]=tesgroup(Eb,groupStruct);
+        [~,indKeep]=max(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve1=edgeListToCurve(E1);
+        indCurve1=indCurve1(1:end-1);
+        
+        [~,indKeep]=min(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve2=edgeListToCurve(E1);
+        indCurve2=indCurve2(1:end-1);
+        
+        cFigure; hold on;
+        gpatch(Ff1,Vf1,'w','k',1);
+        patchNormPlot(Ff1,Vf1);  
+
+        plotV(Vf1(indCurve1,:),'k.-','LineWidth',3);
+        plotV(Vf1(indCurve2,:),'k.-','LineWidth',3);
+        
+        axisGeom;axis off;
+        camlight headlight;
+        drawnow;
+
+        %
+        logicFacesOut_implant=all(logicOut_implant(F_cylinder1),2);
+        logicFacesOut_implant=triSurfLogicSharpFix(F_cylinder1,logicFacesOut_implant,3);
+        F1=F_cylinder1(logicFacesOut_implant,:);
+        V1=V_cylinder1;
+        [F1,V1]=patchCleanUnused(F1,V1);
+        clear cParSmooth;
+        cParSmooth.n=25;
+        cParSmooth.Method='HC';
+        [V1]=patchSmooth(F1,V1,[],cParSmooth);
+        Eb=patchBoundary(F1,V1);
+        
+        groupStruct.outputType='label';
+        [G,~,groupSize]=tesgroup(Eb,groupStruct);
+        [~,indKeep]=max(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve3=edgeListToCurve(E1);
+        indCurve3=indCurve3(1:end-1);
+        
+        [~,indKeep]=min(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve4=edgeListToCurve(E1);
+        indCurve4=indCurve4(1:end-1);
+        
+        cFigure; hold on;
+        gpatch(Ff1,Vf1,'w','k',0.25);
+        
+        plotV(Vf1(indCurve1,:),'k.-','LineWidth',3);
+        plotV(Vf1(indCurve2,:),'k.-','LineWidth',3);
+        
+        gpatch(F1,V1,'r','k',0.25)
+        
+        plotV(V1(indCurve3,:),'r.-','LineWidth',3);
+        plotV(V1(indCurve4,:),'r.-','LineWidth',3);
+        
+        axisGeom;axis off;
+        camlight headlight;
+        drawnow;
+   
+        D1=min(minDist(Vf1(indCurve1,:),V1(indCurve3,:)));
+        D2=min(minDist(Vf1(indCurve1,:),V1(indCurve4,:)));
+        
+        
+        if D2<D1
+            [~,indMin]=minDist(Vf1(indCurve1(1),:),V1(indCurve4,:));            
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(indCurve4,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(flip(indCurve4),:)).^2,2)));
+            if D2a<D1a
+                indCurve4=flip(indCurve4);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh1,Vh1]=polyLoftLinear(Vf1(indCurve1,:),V1(indCurve4,:),cPar);
+        else
+           [~,indMin]=minDist(Vf1(indCurve1(1),:),V1(indCurve3,:));            
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(indCurve3,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(flip(indCurve3),:)).^2,2)));
+            if D2a<D1a
+                indCurve3=flip(indCurve3);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh1,Vh1]=polyLoftLinear(Vf1(indCurve1,:),V1(indCurve3,:),cPar);
+        end
+
+        D1=min(minDist(Vf1(indCurve2,:),V1(indCurve3,:)));
+        D2=min(minDist(Vf1(indCurve2,:),V1(indCurve4,:)));
+
+        if D2<D1
+            [~,indMin]=minDist(Vf1(indCurve2(1),:),V1(indCurve4,:));            
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(indCurve4,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(flip(indCurve4),:)).^2,2)));
+            if D2a<D1a
+                indCurve4=flip(indCurve4);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh2,Vh2]=polyLoftLinear(Vf1(indCurve2,:),V1(indCurve4,:),cPar);
+        else
+           [~,indMin]=minDist(Vf1(indCurve2(1),:),V1(indCurve3,:));            
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(indCurve3,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(flip(indCurve3),:)).^2,2)));
+            if D2a<D1a
+                indCurve3=flip(indCurve3);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh2,Vh2]=polyLoftLinear(Vf1(indCurve2,:),V1(indCurve3,:),cPar);
+        end
+        
+        
+        cFigure; hold on;
+        gpatch(Ff1,Vf1,'w','k',0.25);
+        
+        %plotV(Vf1(indCurve5,:),'g.-','LineWidth',5);
+        %plotV(Vf1(indCurve6,:),'m.-','LineWidth',5);
+        
+        %plotV(V3(indCurve7,:),'c.-','LineWidth',5);
+        %plotV(V3(indCurve8,:),'k.-','LineWidth',5);
+        
+        gpatch(fliplr(Fh1),Vh1,'r','k',1)
+        %patchNormPlot(fliplr(Fh2),Vh2);  
+        
+        gpatch(fliplr(Fh2),Vh2,'g','k',1)
+        %patchNormPlot(fliplr(Fh3),Vh3);  
+        
+        gpatch(F1,V1,'w','k',0.25)
+        %patchNormPlot(F3,V3);
+        
+        axisGeom;axis off;
+        camlight headlight;
+        drawnow;
+  
+        [F_bone,V_bone]=joinElementSets({Ff1,fliplr(Fh1),fliplr(Fh2),F1},{Vf1,Vh1,Vh2,V1});
+        [F_bone,V_bone]=patchCleanUnused(F_bone,V_bone);
+        [F_bone,V_bone]=mergeVertices(F_bone,V_bone);
+        
+        cFigure; hold on;
+        gpatch(F_bone,V_bone,'w','k',1);
+        patchNormPlot(F_bone,V_bone);  
+        
+        axisGeom;axis off;
         camlight headlight;
         drawnow;
 
         %% Second cylinder
-        pointSpacing=mean(patchEdgeLengths(Ff1,Vf1));
+        pointSpacing=mean(patchEdgeLengths(F_bone,V_bone));
         voxelSize=pointSpacing;
-        [regionLabel_implant]=simplexImIntersect(Ff1,Vf1,[],V_cylinder2,voxelSize);
+        [regionLabel_implant]=simplexImIntersect(F_bone,V_bone,[],V_cylinder2,voxelSize);
         logicOut_implant=~(~isnan(regionLabel_implant));
-        logicFacesOut_implant=all(logicOut_implant(F_cylinder),2);
+        logicFacesOut_implant=all(logicOut_implant(F_cylinder2),2);
         
-        [regionLabel_bone]=simplexImIntersect(F_cylinder,V_cylinder2,[],Vf1,voxelSize);
+        [regionLabel_bone]=simplexImIntersect(F_cylinder2,V_cylinder2,[],V_bone,voxelSize);
         logicOut_bone=isnan(regionLabel_bone);
-        logicFacesOut_bone=all(logicOut_bone(Ff1),2);
+        logicFacesOut_bone=all(logicOut_bone(F_bone),2);
         
-        logicFacesOut_bone=triSurfLogicSharpFix(Ff1,logicFacesOut_bone,3);
-        F3=Ff1(logicFacesOut_bone,:);
-        V3=Vf1;
-        [F3,V3]=patchCleanUnused(F3,V3);
-        Eb=patchBoundary(F3,V3);
+        logicFacesOut_bone=triSurfLogicSharpFix(F_bone,logicFacesOut_bone,3);
+        F1=F_bone(logicFacesOut_bone,:);
+        V1=V_bone;
+        [F1,V1]=patchCleanUnused(F1,V1);
+        
+        Eb=patchBoundary(F1,V1);
         groupStruct.outputType='label';
         [G,~,groupSize]=tesgroup(Eb,groupStruct); 
         [~,indKeep]=max(groupSize);
@@ -273,228 +448,291 @@ switch select_amputation_case
         E1=Eb(logicKeep,:);
         indCurve1=edgeListToCurve(E1);
         indCurve1=indCurve1(1:end-1);
+        
+        %[~,indKeep]=min(groupSize);
+        logicKeep=G~=indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve2=edgeListToCurve(E1);
+        indCurve2=indCurve2(1:end-1);
 
+        logicFacesIn_implant=all(~logicOut_implant(F_cylinder2),2);
+        logicFacesIn_implant=triSurfLogicSharpFix(F_cylinder2,logicFacesIn_implant,3);
+        F2=F_cylinder2(logicFacesIn_implant,:);
+        V2=V_cylinder2;
+        [F2,V2]=patchCleanUnused(F2,V2);
+        clear cParSmooth;
+        cParSmooth.n=25;
+        cParSmooth.Method='HC';
+        [V2]=patchSmooth(F2,V2,[],cParSmooth);
+        Eb=patchBoundary(F2,V2);
+        
+        groupStruct.outputType='label';
+        [G,~,groupSize]=tesgroup(Eb,groupStruct);
+        [~,indKeep]=max(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve3=edgeListToCurve(E1);
+        indCurve3=indCurve3(1:end-1);
+        
+        [~,indKeep]=min(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve4=edgeListToCurve(E1);
+        indCurve4=indCurve4(1:end-1);
+        
+        %Find closer curve for lofting
+        D1=min(minDist(V1(indCurve1,:),V2(indCurve3,:)));
+        D2=min(minDist(V1(indCurve1,:),V2(indCurve4,:)));
+        
+        %Reorder curves
+        if D2<D1
+            [~,indMin]=minDist(V1(indCurve1(1),:),V2(indCurve4,:));
+        
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            [Fh1,Vh1]=regionTriMesh3D({V1(indCurve1,:),V2(indCurve4,:)},pointSpacing,0,'natural');
+        else
+            [~,indMin]=minDist(V1(indCurve1(1),:),V2(indCurve3,:));
+        
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            [Fh1,Vh1]=regionTriMesh3D({V1(indCurve1,:),V2(indCurve3,:)},pointSpacing,0,'natural');
+        end
+        
+        D1=min(minDist(V1(indCurve2,:),V2(indCurve3,:)));
+        D2=min(minDist(V1(indCurve2,:),V2(indCurve4,:)));
+
+        %Reorder curves
+        if D2<D1
+            [~,indMin]=minDist(V1(indCurve2(1),:),V2(indCurve4,:));
+        
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            [Fh2,Vh2]=regionTriMesh3D({V1(indCurve2,:),V2(indCurve4,:)},pointSpacing,0,'natural');
+        else
+            [~,indMin]=minDist(V1(indCurve2(1),:),V2(indCurve3,:));
+        
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            [Fh2,Vh2]=regionTriMesh3D({V1(indCurve2,:),V2(indCurve3,:)},pointSpacing,0,'natural');
+        end
+        
+        %Visualization
+        cFigure; hold on;
+
+         plotV(V1(indCurve1,:),'k.-','LineWidth',4);
+         plotV(V1(indCurve2,:),'k.-','LineWidth',4);
+%         
+         plotV(V2(indCurve3,:),'r.-','LineWidth',4);
+         plotV(V2(indCurve4,:),'r.-','LineWidth',4);
+         
+         gpatch(F1,V1,'w','k',0.25)
+         gpatch(F2,V2,'r','k',0.25);
+         
+         gpatch(Fh1,Vh1,'g','k',1)
+         patchNormPlot(Fh1,Vh1);
+         
+         gpatch(fliplr(Fh2),Vh2,'c','k',1)
+         patchNormPlot(fliplr(Fh2),Vh2);
+        
+        axisGeom;axis off;
+        camlight headlight;        
+        drawnow;
+       
+        [Ff1,Vf1]=joinElementSets({F1,Fh1,fliplr(Fh2)},{V1,Vh1,Vh2});
+        [Ff1,Vf1]=patchCleanUnused(Ff1,Vf1);
+        [Ff1,Vf1]=mergeVertices(Ff1,Vf1);
+
+        cFigure; hold on;
+
+         
+         gpatch(Ff1,Vf1,'w','k',1)
+         patchNormPlot(Ff1,Vf1);
+         
+
+        axisGeom;axis off;
+        camlight headlight;        
+        drawnow;
+       
+        Eb=patchBoundary(Ff1,Vf1);
+        groupStruct.outputType='label';
+        [G,~,groupSize]=tesgroup(Eb,groupStruct);
+        [~,indKeep]=max(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve1=edgeListToCurve(E1);
+        indCurve1=indCurve1(1:end-1);
         
         [~,indKeep]=min(groupSize);
         logicKeep=G==indKeep;
         E1=Eb(logicKeep,:);
         indCurve2=edgeListToCurve(E1);
         indCurve2=indCurve2(1:end-1);
+        
+         cFigure; hold on;
 
-        logicFacesIn_implant=all(~logicOut_implant(F_cylinder),2);
-        logicFacesIn_implant=triSurfLogicSharpFix(F_cylinder,logicFacesIn_implant,4);
-        F4=F_cylinder(logicFacesIn_implant,:);
-        V4=V_cylinder2;
-        [F4,V4]=patchCleanUnused(F4,V4);
+         plotV(Vf1(indCurve1,:),'k.-','LineWidth',4);
+         plotV(Vf1(indCurve2,:),'k.-','LineWidth',4);
+
+         gpatch(Ff1,Vf1,'w','k',0.25)
+         patchNormPlot(Ff1,Vf1);
+        
+        axisGeom;axis off;
+        camlight headlight;        
+        drawnow;
+ 
+        logicFacesOut_implant=all(logicOut_implant(F_cylinder2),2);
+        logicFacesOut_implant=triSurfLogicSharpFix(F_cylinder2,logicFacesOut_implant,3);
+        F1=F_cylinder2(logicFacesOut_implant,:);
+        V1=V_cylinder2;
+        [F1,V1]=patchCleanUnused(F1,V1);
         clear cParSmooth;
         cParSmooth.n=25;
         cParSmooth.Method='HC';
-        [V4]=patchSmooth(F4,V4,[],cParSmooth);
-        Eb=patchBoundary(F4,V4);
+        [V1]=patchSmooth(F1,V1,[],cParSmooth);
+        Eb=patchBoundary(F1,V1);
         
         groupStruct.outputType='label';
         [G,~,groupSize]=tesgroup(Eb,groupStruct);
-        logicKeep=G==1;
-        E2=Eb(logicKeep,:);
-        indCurve3=edgeListToCurve(E2);
+        [~,indKeep]=max(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve3=edgeListToCurve(E1);
         indCurve3=indCurve3(1:end-1);
         
-        logicKeep=G==2;
-        E2=Eb(logicKeep,:);
-        indCurve4=edgeListToCurve(E2);
+        [~,indKeep]=min(groupSize);
+        logicKeep=G==indKeep;
+        E1=Eb(logicKeep,:);
+        indCurve4=edgeListToCurve(E1);
         indCurve4=indCurve4(1:end-1);
         
-        %Visualization
         cFigure; hold on;
-        gpatch(F3,V3,'y','k',1);
-        patchNormPlot(F3,V3);
+        gpatch(Ff1,Vf1,'w','k',0.25);
         
-        plotV(V3(indCurve2,:),'g.-','LineWidth',1);
-        plotV(V4(indCurve3,:),'m.-','LineWidth',1);
+        plotV(Vf1(indCurve1,:),'k.-','LineWidth',3);
+        plotV(Vf1(indCurve2,:),'k.-','LineWidth',3);
         
-        plotV(V3(indCurve1,:),'r.-','LineWidth',1);
-        plotV(V4(indCurve4,:),'c.-','LineWidth',1);
+        gpatch(F1,V1,'r','k',0.25)
         
-        gpatch(F4,V4,'r','k',1)
-        patchNormPlot(F4,V4);
-        axisGeom;
-        camlight headlight;
+        plotV(V1(indCurve3,:),'r.-','LineWidth',3);
+        plotV(V1(indCurve4,:),'r.-','LineWidth',3);
         
-        drawnow;
-
-        [~,indMin]=minDist(V3(indCurve1,:),V3(indCurve4,:));
-        
-        if indMin>1
-            indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
-        end
-
-        [~,indMin]=minDist(V3(indCurve2,:),V4(indCurve3,:));
-        
-        if indMin>1
-            indCurve4=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
-        end
-
-        
-        [Fh2,Vh2]=regionTriMesh3D({V3(indCurve1,:),V4(indCurve4,:)},pointSpacing,0,'natural');
-        [Fh3,Vh3]=regionTriMesh3D({V3(indCurve2,:),V4(indCurve3,:)},pointSpacing,0,'natural');
-        
-        %Visualization
-        cFigure; hold on;
-        gpatch(F3,V3,'y','k',1);
-        
-        plotV(V3(indCurve2,:),'c.-','LineWidth',1);
-        plotV(V4(indCurve3,:),'c.-','LineWidth',1);
-        
-        gpatch(F4,V4,'r','k',1)
-        patchNormPlot(F4,V4);
-        
-        gpatch(Fh2,Vh2,'w','k',1);
-        patchNormPlot(Fh2,Vh2);
-        
-        plotV(V3(indCurve2,:),'g.-','LineWidth',1);
-        plotV(V4(indCurve4,:),'g.-','LineWidth',1);
-        
-        gpatch(Fh3,Vh3,'w','k',1);
-        patchNormPlot(fliplr(Fh3),Vh3);       
-
-        axisGeom;
+        axisGeom;axis off;
         camlight headlight;
         drawnow;
+        
+        D1=min(minDist(Vf1(indCurve1,:),V1(indCurve3,:)));
+        D2=min(minDist(Vf1(indCurve1,:),V1(indCurve4,:)));
+        
+        
+        if D2<D1
+            [~,indMin]=minDist(Vf1(indCurve1(1),:),V1(indCurve4,:));            
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(indCurve4,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(flip(indCurve4),:)).^2,2)));
+            if D2a<D1a
+                indCurve4=flip(indCurve4);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh1,Vh1]=polyLoftLinear(Vf1(indCurve1,:),V1(indCurve4,:),cPar);
+        else
+           [~,indMin]=minDist(Vf1(indCurve1(1),:),V1(indCurve3,:));            
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(indCurve3,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve1,:)-V1(flip(indCurve3),:)).^2,2)));
+            if D2a<D1a
+                indCurve3=flip(indCurve3);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh1,Vh1]=polyLoftLinear(Vf1(indCurve1,:),V1(indCurve3,:),cPar);
+        end
+        
+        D1=min(minDist(Vf1(indCurve2,:),V1(indCurve3,:)));
+        D2=min(minDist(Vf1(indCurve2,:),V1(indCurve4,:)));
 
-        [F_bone,V_bone]=joinElementSets({F3,F4,Fh2,fliplr(Fh3)},{V3,V4,Vh2,Vh3});
+        if D2<D1
+            [~,indMin]=minDist(Vf1(indCurve2(1),:),V1(indCurve4,:));            
+            if indMin>1
+                indCurve4=[indCurve4(indMin:end) indCurve4(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(indCurve4,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(flip(indCurve4),:)).^2,2)));
+            if D2a<D1a
+                indCurve4=flip(indCurve4);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh2,Vh2]=polyLoftLinear(Vf1(indCurve2,:),V1(indCurve4,:),cPar);
+        else
+           [~,indMin]=minDist(Vf1(indCurve2(1),:),V1(indCurve3,:));            
+            if indMin>1
+                indCurve3=[indCurve3(indMin:end) indCurve3(1:indMin-1)];
+            end
+            D1a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(indCurve3,:)).^2,2)));
+            D2a=sum(sqrt(sum((Vf1(indCurve2,:)-V1(flip(indCurve3),:)).^2,2)));
+            if D2a<D1a
+                indCurve3=flip(indCurve3);
+            end
+            cPar.closeLoopOpt=1;
+            cPar.patchType='tri_slash';
+            [Fh2,Vh2]=polyLoftLinear(Vf1(indCurve2,:),V1(indCurve3,:),cPar);
+        end
+        
+        
+        cFigure; hold on;
+        gpatch(Ff1,Vf1,'w','k',0.25);
+        patchNormPlot(Ff1,Vf1);
+
+        gpatch(fliplr(Fh1),Vh1,'r','k',1)
+        patchNormPlot(fliplr(Fh1),Vh1);  
+        
+        gpatch(fliplr(Fh2),Vh2,'g','k',1)
+        patchNormPlot(fliplr(Fh2),Vh2);  
+        
+        gpatch(F1,V1,'w','k',0.25)
+        patchNormPlot(F1,V1);
+        
+        axisGeom;axis off;
+        camlight headlight;
+        drawnow;
+        
+        [F_bone,V_bone]=joinElementSets({Ff1,fliplr(Fh1),fliplr(Fh2),F1},{Vf1,Vh1,Vh2,V1});
         [F_bone,V_bone]=patchCleanUnused(F_bone,V_bone);
         [F_bone,V_bone]=mergeVertices(F_bone,V_bone);
         
         cFigure; hold on;
-        gpatch(F_bone,V_bone,'w','none',1);
-        %patchNormPlot(F_bone,V_bone);       
-
-        axisGeom; axis off;
-        camlight headlight;
-        drawnow;
-        
-        
-        %% We created holes within the femur, now, we have to re-create cylinders with diameter smaller than the diameter of the holes
-        % making sure that cylinders can go inside of the holes
-        pointSpacingBeams=pointSpacing/2;
-        inputStruct.cylRadius=4.5;
-        inputStruct.numRadial=round((2*pi*inputStruct.cylRadius)./pointSpacingBeams);
-        inputStruct.cylHeight=max(V_skin(:,1))-min(V_skin(:,1))+30;
-        nh=round(inputStruct.cylHeight./pointSpacingBeams);
-        nh=nh+double(iseven(nh));
-        inputStruct.numHeight=nh;
-        inputStruct.meshType='tri';
-        inputStruct.closeOpt=1;
-        % Derive patch data for a cylinder
-        [F_cylinder,V_cylinder,C_cylinder]=patchcylinder(inputStruct);
-        R1=euler2DCM([0.5*pi 0 0]);
-        R2=euler2DCM([0 0.5*pi 0]);
-
-        V_cylinder1=V_cylinder*R1+mean(Vc,1);
-        V_cylinder1(:,2)=V_cylinder1(:,2)+8;
-        V_cylinder2=V_cylinder*R2+mean(Vc,1);
-        V_cylinder2(:,1)=V_cylinder1(:,2)-5;
-        V_cylinder2(:,3)=V_cylinder2(:,3)-3*5;
-        
-        cFigure; hold on;
-        
-        gpatch(F_cylinder,V_cylinder1,'w','none',1);
-        %patchNormPlot(F_cylinder,V_cylinder1);
-        gpatch(F_cylinder,V_cylinder2,'w','none',1);
-        %patchNormPlot(fliplr(F_cylinder),V_cylinder2);
-        
         gpatch(F_bone,V_bone,'w','k',1);
-        %patchNormPlot(F_bone,V_bone);       
-
+        %patchNormPlot(F_bone,V_bone);  
+        
         axisGeom;axis off;
         camlight headlight;
         drawnow;
-   
-        %% Create the holes from the intersection of cylinders with muscle surface to accomodate the cylinders.
-        %Local surface refinement using subTriDual
-        D=sqrt(sum((V_muscle-[-150 -77 760]).^2,2));
-        logicVertices=D<20; %Vertex logic
-        logicFaces=any(logicVertices(F_muscle),2); %Convert to face logic
-        logicFaces=triSurfLogicSharpFix(F_muscle,logicFaces,3);
         
-        [Ft,Vt,C_type,indIni]=subTriDual(F_muscle,V_muscle,logicFaces);
-        
-        %Smoothen newly introduced nodes
-        cPar.Method='HC'; %Smoothing method
-        cPar.n=50; %Number of iterations
-        cPar.RigidConstraints=indIni; %Constrained points
-        [Vt]=tesSmooth(Ft,Vt,[],cPar);
-
-        D=sqrt(sum((Vt-[-115 -120 770]).^2,2));
-        logicVertices=D<10; %Vertex logic
-        logicFaces=any(logicVertices(Ft),2); %Convert to face logic
-        logicFaces=triSurfLogicSharpFix(Ft,logicFaces,3);
-        [Ft,Vt,C_type,indIni]=subTriDual(Ft,Vt,logicFaces);
-        
-        %Smoothen newly introduced nodes
-        cPar.Method='HC'; %Smoothing method
-        cPar.n=50; %Number of iterations
-        cPar.RigidConstraints=indIni; %Constrained points
-        [Vt]=tesSmooth(Ft,Vt,[],cPar);
-        
-        
-        D=sqrt(sum((Vt-[-2 -86 756]).^2,2));
-        logicVertices=D<15; %Vertex logic
-        logicFaces=any(logicVertices(Ft),2); %Convert to face logic
-        logicFaces=triSurfLogicSharpFix(Ft,logicFaces,3);
-        [Ft,Vt,C_type,indIni]=subTriDual(Ft,Vt,logicFaces);
-        
-        %Smoothen newly introduced nodes
-        cPar.Method='HC'; %Smoothing method
-        cPar.n=50; %Number of iterations
-        cPar.RigidConstraints=indIni; %Constrained points
-        [Vt]=tesSmooth(Ft,Vt,[],cPar);
-        
-        
-        D=sqrt(sum((Vt-[-109 -46 769]).^2,2));
-        logicVertices=D<13; %Vertex logic
-        logicFaces=any(logicVertices(Ft),2); %Convert to face logic
-        logicFaces=triSurfLogicSharpFix(Ft,logicFaces,3);
-        [Ft,Vt,C_type,indIni]=subTriDual(Ft,Vt,logicFaces);
-        
-        %Smoothen newly introduced nodes
-        cPar.Method='HC'; %Smoothing method
-        cPar.n=50; %Number of iterations
-        cPar.RigidConstraints=indIni; %Constrained points
-        [Vt]=tesSmooth(Ft,Vt,[],cPar);
-        
-        
-        F_muscle=Ft;
-        V_muscle=Vt;
-        
-        cFigure; hold on;
-        
-        gpatch(F_cylinder,V_cylinder1,'gw','none',1);
-        gpatch(F_cylinder,V_cylinder2,'gw','none',1);
-        gpatch(F_muscle,V_muscle,'w','k',1);
-        %gpatch(Ft,Vt,'w','k',0.6);
-        %gpatch(F_muscle(logicFaces,:),V_muscle,'gw','k');
-        axisGeom;
-        camlight headlight;
-        drawnow;
-        
-        % Find the intersection of cylinders with muscle layer.
-        % Delete the intersected zones to form the semi-holes for
-        % cylinders to lay in.
-        
+        %Find intersection of cylindrical bars with muscle
+        %Remove intersected points correcting the mesh. 
         % Determine optional voxel size input from mean edge size
         [D1]=patchEdgeLengths(F_muscle,V_muscle);
-        [D2]=patchEdgeLengths(F_cylinder,V_cylinder1);
+        [D2]=patchEdgeLengths(F_bone,V_bone);
         d=mean([D1(:);D2(:)]);
-        voxelSize=d/3;
+        voxelSize=d/5;
         
-        % Find points outside of a simplex Cilinder1 & Muscle surface
-        [regionLabel1]=simplexImIntersect(F_cylinder,V_cylinder1,[],V_muscle,voxelSize);
+        % Find points outside of a simplex Cilinder1 & skin surface
+        [regionLabel1]=simplexImIntersect(F_bone,V_bone,[],V_muscle,voxelSize);
         logicOut=isnan(regionLabel1);
         logicFacesOut=all(logicOut(F_muscle),2);
         logicFacesOut=triSurfLogicSharpFix(F_muscle,logicFacesOut,3);
         
-        % Delet points outside of a simplex cylinder 1 and muscle 
+        % Delet points outside of a simplex cylinder 1 and skin 
         indRim=unique(F_muscle(logicFacesOut,:));
         logicFacesSmooth=any(ismember(F_muscle,indRim),2);
         indSmooth=F_muscle(logicFacesSmooth,:);
@@ -504,279 +742,172 @@ switch select_amputation_case
         cParSmooth.n=25;
         cParSmooth.Method='HC';
         cParSmooth.RigidConstraints=indRigid;
-        [Vm1]=patchSmooth(F_muscle(logicFacesOut,:),V_muscle,[],cParSmooth);
-        Fm1=F_muscle(logicFacesOut,:);
-
-        % Find points outside of a simplex Cilinder2 & Muscle surface1
-        [regionLabel2]=simplexImIntersect(F_cylinder,V_cylinder2,[],Vm1,voxelSize);
-        logicOut=isnan(regionLabel2);
-        logicFacesOut=all(logicOut(Fm1),2);
-        logicFacesOut=triSurfLogicSharpFix(Fm1,logicFacesOut,3);
-        
-        % Delet points outside of a simplex cylinder 2 and muscle 
-        indRim=unique(Fm1(logicFacesOut,:));
-        logicFacesSmooth=any(ismember(Fm1,indRim),2);
-        indSmooth=Fm1(logicFacesSmooth,:);
-        indRigid=Fm1(~ismember(Fm1,indSmooth));
-
-        clear cParSmooth;
-        cParSmooth.n=25;
-        cParSmooth.Method='HC';
-        cParSmooth.RigidConstraints=indRigid;
-        [Vm2]=patchSmooth(Fm1(logicFacesOut,:),Vm1,[],cParSmooth);
-        Fm2=Fm1(logicFacesOut,:);
+        [Vm]=patchSmooth(F_muscle(logicFacesOut,:),V_muscle,[],cParSmooth);
+        Fm=F_muscle(logicFacesOut,:);
         
         %%
         % Visualization
-        cFigure;
-        subplot(1,3,1); hold on;
-        title('Intersecting sets')
-        gpatch(F_cylinder,V_cylinder1,'g','none',0.5);
-        gpatch(F_cylinder,V_cylinder2,'g','none',0.5);
-        gpatch(Fm2,Vm2,'kw','k',0.5);
-        axisGeom;
-        camlight headlight;
-        
-        subplot(1,3,2); hold on;
-        title('Point labels')
-        gpatch(F_cylinder,V_cylinder1,'g','none',0.5);
-        gpatch(F_cylinder,V_cylinder2,'g','none',0.5);
-        gpatch(Fm2,Vm2,'kw','none',0.5);
-        scatterV(Vm2,15,regionLabel2,'filled');
-        colormap gjet; icolorbar;
-        axisGeom;
-        camlight headlight;
-        
-        subplot(1,3,3); hold on;
-        title('Cropped geometry')
-        gpatch(F_cylinder,V_cylinder1,'g','none',0.5);
-        gpatch(F_cylinder,V_cylinder2,'g','none',0.5);
-        gpatch(Fm2,Vm2,'kw','k',0.5);
-        axisGeom;
-        camlight headlight;
-        drawnow;
-        
         cFigure; hold on;
-        gpatch(F_cylinder,V_cylinder1,'w','none',0.5);
-        gpatch(F_cylinder,V_cylinder2,'w','none',0.5);
-        gpatch(Fm2,Vm2,'w','k',1);
+        gpatch(F_bone,V_bone,'w','none',0.5);
+        gpatch(Fm,Vm,'kw','k',0.5);
+        %patchNormPlot(Fm,Vm);  
         axisGeom;axis off;
         camlight headlight;
         drawnow;
-
-        % Merge muscle vertices
-        [Fm,Vm]=patchCleanUnused(Fm2,Vm2);
-        [Fm,Vm]=mergeVertices(Fm,Vm);
+        
                
         %% Find edges of the muscle
         Eb=patchBoundary(Fm,Vm);
         [G,~,groupSize]=tesgroup(Eb,groupStruct);
         logicKeep=G==1;
-        E2=Eb(logicKeep,:);
-        indRim1=edgeListToCurve(E2);
-        indRim1=indRim1(1:end-1);
+        E1=Eb(logicKeep,:);
+        indRim=edgeListToCurve(E1);
+        indRim=indRim(1:end-1);
         
-        logicKeep=G==2;
-        E2=Eb(logicKeep,:);
-        indRim2=edgeListToCurve(E2);
-        indRim2=indRim2(1:end-1);
-        
-        logicKeep=G==3;
-        E2=Eb(logicKeep,:);
-        indRim3=edgeListToCurve(E2);
-        indRim3=indRim3(1:end-1);
-        
-         
-       %% Create the outer surface of the muscle by scaling the muscle
-        Vm1=Vm.*scaleFactor;
-        Eb=patchBoundary(Fm,Vm1);
-        [G,~,groupSize]=tesgroup(Eb,groupStruct);
-        logicKeep=G==1;
-        E2=Eb(logicKeep,:);
-        indRim1a=edgeListToCurve(E2);
-        indRim1a=indRim1a(1:end-1);
-        
-        logicKeep=G==2;
-        E2=Eb(logicKeep,:);
-        indRim2a=edgeListToCurve(E2);
-        indRim2a=indRim2a(1:end-1);
-        
-        logicKeep=G==3;
-        E2=Eb(logicKeep,:);
-        indRim3a=edgeListToCurve(E2);
-        indRim3a=indRim3a(1:end-1);
-        
-        difference=mean(Vm1(indRim1a,:),1)-mean(Vm(indRim1,:),1);
-        Vm2=Vm1-difference;
-      
         %Visualization
         cFigure;hold on;
         
         gpatch(F_bone,V_bone,'w','none',0.5);
-        gpatch(F_cylinder,V_cylinder1,'w','none',0.5);
-        gpatch(F_cylinder,V_cylinder2,'w','none',0.5);
+        gpatch(Fm,Vm,'w','k',0.5);
+        plotV(Vm(indRim,:),'k-','LineWidth',4);
 
-        gpatch(fliplr(Fm),Vm,'rw','k',0.5);
-        %patchNormPlot(fliplr(Fm),Vm);
-        
-        gpatch(fliplr(Fm),Vm2,'bw','k',0.5);
-        %patchNormPlot(Fm,Vm2);
-        
-%         plotV(Vm(indRim1,:),'g-','LineWidth',4);
-%         plotV(Vm2(indRim1a,:),'g-','LineWidth',4);
-%         
-%         plotV(Vm(indRim2,:),'r-','LineWidth',4);
-%         plotV(Vm2(indRim2a,:),'r-','LineWidth',4);
-%         
-%         plotV(Vm(indRim3,:),'m-','LineWidth',4);        
-%         plotV(Vm2(indRim3a,:),'m-','LineWidth',4);
         axisGeom; axis off;
         camlight headlight;
         drawnow;
+
         
-        %% Select the most lower edge of the amputated muscle to build the
-        % support structure for the mold.     
-        [C,I]=min(Vm2(:,3));
-        snapTolerance=mean(patchEdgeLengths(Fm,Vm2))/100;
-        n=vecnormalize([0 0 1]); %Normal direction to plane
-        P=Vm2(I,:);%Point on plane
-        P(:,3)=P(:,3)+30;
-        C=[];
-        %Slicing surface 
-        [Fm3,Vm3,~,logicSide,Eb]=triSurfSlice(Fm,Vm2,C,P,n,snapTolerance);
-        %Compose isolated cut geometry and boundary curves
-        [Fm3,Vm3]=patchCleanUnused(Fm3(~logicSide,:),Vm3);
+       %% Create the outer surface of the muscle by scaling the muscle
+        Vma=Vm.*scaleFactor;
+        Eb=patchBoundary(Fm,Vma);
+        [G,~,groupSize]=tesgroup(Eb,groupStruct);
+        logicKeep=G==1;
+        E1=Eb(logicKeep,:);
+        indRima=edgeListToCurve(E1);
+        indRima=indRima(1:end-1);
         
         %Visualization
         cFigure;hold on;
         
-        %gpatch(F_bone,V_bone,'w','none',0.5);
+        gpatch(Fm,Vm,'w','none',0.5);
+        gpatch(Fm,Vma,'w','k',0.5);
+        plotV(Vm(indRim,:),'k-','LineWidth',4);
+        plotV(Vma(indRima,:),'k-','LineWidth',4);
 
-        gpatch(fliplr(Fm),Vm,'rw','none',0.25);
-        %patchNormPlot(fliplr(Fm),Vm);
-        gpatch(Fm3,Vm3,'bw','k',1);
-        %patchNormPlot(Fm3,Vm3);
+        axisGeom; axis off;
+        camlight headlight;
+        drawnow;
+  
+        difference=mean(Vma(indRima,:),1)-mean(Vm(indRim,:),1);
+        Vma=Vma-difference;
+      
+        %Visualization
+        cFigure;hold on;
         
+        gpatch(Fm,Vm,'w','none',0.25);
+        %patchNormPlot(Fm,Vm);  
+        gpatch(Fm,Vma,'w','k',0.25);
+        %patchNormPlot(Fm,Vma); 
+        plotV(Vm(indRim,:),'k-','LineWidth',4);
+        plotV(Vma(indRima,:),'k-','LineWidth',4);
+
+        axisGeom; axis off;
+        camlight headlight;
+        drawnow;
+
+        [Fmb,Vmb]=regionTriMesh3D({Vm(indRim,:),Vma(indRima,:)},pointSpacing,0,'natural');
+        Fmb=fliplr(Fmb);
+        %Visualization
+        cFigure;hold on;
+        
+        gpatch(Fm,Vm,'w','none',0.25);
+        %patchNormPlot(Fm,Vm);  
+        gpatch(Fm,Vma,'w','k',0.25);
+        %patchNormPlot(Fm,Vma); 
+        gpatch(Fmb,Vmb,'w','k',0.25);
+        %patchNormPlot(Fmb,Vmb); 
+        
+        plotV(Vm(indRim,:),'k-','LineWidth',4);
+        plotV(Vma(indRima,:),'k-','LineWidth',4);
+
+        axisGeom; axis off;
+        camlight headlight;
+        drawnow;
+
+     
+        %% Select the most lower edge of the amputated muscle to build the
+        % support structure for the mold.     
+        [C,I]=min(Vma(:,3));
+        snapTolerance=mean(patchEdgeLengths(Fm,Vma))/100;
+        n=vecnormalize([0 0 1]); %Normal direction to plane
+        P=Vma(I,:);%Point on plane
+        P(:,3)=P(:,3)+CutHeight;
+        C=[];
+        %Slicing surface 
+        [Fmc,Vmc,~,logicSide,Eb]=triSurfSlice(Fm,Vma,C,P,n,snapTolerance);
+        %Compose isolated cut geometry and boundary curves
+        [Fmc,Vmc]=patchCleanUnused(Fmc(~logicSide,:),Vmc);
+        
+        cFigure;hold on;
+        
+        gpatch(Fm,Vm,'w','none',0.25);
+        patchNormPlot(Fm,Vm);  
+        gpatch(Fmc,Vmc,'w','k',0.25);
+        patchNormPlot(Fmc,Vmc); 
+        gpatch(Fmb,Vmb,'w','k',0.25);
+        patchNormPlot(Fmb,Vmb); 
+        
+        plotV(Vm(indRim,:),'k-','LineWidth',4);
+        plotV(Vma(indRima,:),'k-','LineWidth',4);
+
+        axisGeom; axis off;
+        camlight headlight;
+        drawnow;
+        
+        %Join and merge surfaces
+        [FM,VM]=joinElementSets({Fm,Fmb,fliplr(Fmc)},{Vm,Vmb,Vmc});
+        [FM,VM]=patchCleanUnused(FM,VM);
+        [FM,VM]=mergeVertices(FM,VM);
+        
+        cFigure;hold on;
+        
+        gpatch(FM,VM,'w','none',1);
+        patchNormPlot(FM,VM);  
         axisGeom; axis off;
         camlight headlight;
         drawnow;
 
         %Find edges of the outer muscle surface
-        Eb=patchBoundary(Fm3,Vm3);
+        Eb=patchBoundary(FM,VM);
         groupStruct.outputType='label';
         [G,~,groupSize]=tesgroup(Eb,groupStruct); 
         
         logicKeep=G==1;
         Eb_keep=Eb(logicKeep,:);
-        indRim1b=edgeListToCurve(Eb_keep);
-        indRim1b=indRim1b(1:end-1);
+        indRim=edgeListToCurve(Eb_keep);
+        indRim=indRim(1:end-1);
 
-        logicKeep=G==2;
-        Eb_keep=Eb(logicKeep,:);
-        indRim2b=edgeListToCurve(Eb_keep);
-        indRim2b=indRim2b(1:end-1);
-        
-        logicKeep=G==3;
-        Eb_keep=Eb(logicKeep,:);
-        indRim3b=edgeListToCurve(Eb_keep);
-        indRim3b=indRim3b(1:end-1);
-        
-        logicKeep=G==4;
-        Eb_keep=Eb(logicKeep,:);
-        indRim4b=edgeListToCurve(Eb_keep);
-        indRim4b=indRim4b(1:end-1);
-        
         %Visualization
         cFigure;hold on;
         
-        %gpatch(F_bone,V_bone,'w','none',0.5);        
-        gpatch(Fm,Vm,'kw','none',0.5);
-        gpatch(Fm3,Vm3,'kw','none',0.5);
-
-        
-        plotV(Vm(indRim1,:),'g-','LineWidth',4);
-        plotV(Vm3(indRim1b,:),'g-','LineWidth',4);
-        
-        plotV(Vm(indRim2,:),'r-','LineWidth',4);
-        plotV(Vm3(indRim2b,:),'r-','LineWidth',4);
-        
-        plotV(Vm(indRim3,:),'m-','LineWidth',4);  
-        plotV(Vm3(indRim3b,:),'m-','LineWidth',4);
-
-        plotV(Vm3(indRim4b,:),'b-','LineWidth',4);
-
+        gpatch(FM,VM,'w','none',1);
+        plotV(VM(indRim,:),'k-','LineWidth',4);
         axisGeom;axis off;
         camlight headlight;   
         drawnow;
 
-        %Lofting edges building up the walls of the mould
-        pointSpacing=mean(patchEdgeLengths(Fm,Vm));        
-        [~,indMin]=minDist(Vm(indRim1,:),Vm3(indRim1b,:)); 
-        if indMin>1
-            indRim1b=[indRim1b(indMin:end) indRim1b(1:indMin-1)];
-        end
-        %[Fb1,Vb1]=regionTriMesh3D({Vm(indRim1,:),Vm3(indRim1b,:)},pointSpacing,0,'natural');
-        %%
-        % Create loft
-        % cPar.numSteps=17;
-        cPar.closeLoopOpt=1;
-        cPar.patchType='tri_slash';
-        [Fb1,Vb1]=polyLoftLinear(Vm(indRim1,:),Vm3(indRim1b,:),cPar);
-
-        [~,indMin]=minDist(Vm(indRim2,:),Vm3(indRim2b,:)); 
-        if indMin>1
-            indRim2b=[indRim2b(indMin:end) indRim2b(1:indMin-1)];
-        end
-        [Fb2,Vb2]=polyLoftLinear(Vm(indRim2,:),Vm3(indRim2b,:),cPar);
-
-        [~,indMin]=minDist(Vm(indRim3,:),Vm3(indRim3b,:)); 
-        if indMin>1
-            indRim3b=[indRim3b(indMin:end) indRim3b(1:indMin-1)];
-        end
-        [Fb3,Vb3]=polyLoftLinear(Vm(indRim3,:),Vm3(indRim3b,:),cPar);
-
-        cFigure;hold on;
-        
-        gpatch(Fm,Vm,'w','none',0.5);
-        gpatch(Fm3,Vm3,'w','none',0.5);
-        %gpatch(F_bone,V_bone,'w','none',0.5);        
-        gpatch(Fb1,Vb1,'kw','k',1);
-        gpatch(Fb2,Vb2,'kw','k',1);
-        gpatch(Fb3,Vb3,'kw','k',1);
-        
-        plotV(Vm(indRim1,:),'g.-','LineWidth',1);
-        plotV(Vm3(indRim1b,:),'g.-','LineWidth',1);
-        
-        plotV(Vm(indRim2,:),'r-','LineWidth',1);
-        plotV(Vm3(indRim2b,:),'r-','LineWidth',1);
-        
-        plotV(Vm(indRim3,:),'m-','LineWidth',1);  
-        plotV(Vm3(indRim3b,:),'m-','LineWidth',1);
-
-        plotV(Vm3(indRim4b,:),'b-','LineWidth',4);
-        axisGeom; axis off;
-        camlight headlight;   
-        drawnow;
 
         %% Create the support structure for the mold
         % The bottom curve of the outer muscle surface is scaled
-        V_bot1=Vm3(indRim4b,:).*scaleFactor1;
-        difference=mean(V_bot1,1)-mean(Vm3(indRim4b,:),1);
-        V_bot1=V_bot1-difference;
-        V_bot1(:,3)=V_bot1(:,3)-50;        
+        V1=VM(indRim,:).*scaleFactor1;
+        difference=mean(V1,1)-mean(VM(indRim,:),1);
+        V1=V1-difference;
+        V1(:,3)=V1(:,3)-StandHeight;        
             
         cFigure;hold on;
         
-        %gpatch(F_bone,V_bone,'w','none',0.5);
-        gpatch(Fm,Vm,'kw','none',0.5);
-        gpatch(Fm3,Vm3,'kw','none',0.5);
-
-        gpatch(Fb1,Vb1,'kw','k',0.5);
-        gpatch(Fb2,Vb2,'kw','k',0.5);
-        gpatch(Fb3,Vb3,'kw','k',0.5);
-
-        plotV(Vm3(indRim4b,:),'b-','LineWidth',4);
-        plotV(V_bot1,'b-','LineWidth',4);
+        gpatch(FM,VM,'w','none',1);
+        plotV(VM(indRim,:),'k-','LineWidth',4);
+        plotV(V1,'k-','LineWidth',4);
                 
         axisGeom; axis off;
         camlight headlight;   
@@ -786,33 +917,29 @@ switch select_amputation_case
         %them
         cPar.closeLoopOpt=1;
         cPar.patchType='tri';
-        [Fb4,Vb4,~,~]=polyLoftLinear(Vm3(indRim4b,:),V_bot1,cPar);
+        [F2,V2,~,~]=polyLoftLinear(VM(indRim,:),V1,cPar);
 
-        pointSpacing=mean(patchEdgeLengths(Fb4,Vb4));
-        [Fb5,Vb5]=regionTriMesh3D({V_bot1},pointSpacing,0,'linear');
+        pointSpacing=mean(patchEdgeLengths(F2,V2));
+        [F3,V3]=regionTriMesh3D({V1},pointSpacing,0,'linear');
         
-        %Visualization
         cFigure;hold on;
         
-        %gpatch(F_bone,V_bone,'w','none',0.5);
-        
-        gpatch(Fm,Vm,'w','none',0.5);
-        gpatch(Fm3,Vm3,'w','none',0.5);        
-        gpatch(Fb1,Vb1,'kw','k',0.5);
-        gpatch(Fb2,Vb2,'kw','k',0.5);
-        gpatch(Fb3,Vb3,'kw','k',0.5);
-        gpatch(Fb4,Vb4,'kw','k',0.5);
-        gpatch(Fb5,Vb5,'kw','k',0.5);
-        
-        plotV(Vm3(indRim4b,:),'b-','LineWidth',4);
-        plotV(V_bot1,'b-','LineWidth',4);
-        
+        gpatch(FM,VM,'w','none',0.5);
+        %patchNormPlot(FM,VM); 
+        gpatch(F3,V3,'w','k',0.5);
+        %patchNormPlot(F3,V3); 
+        gpatch(F2,V2,'w','k',0.5);
+        %patchNormPlot(F2,V2); 
+    
+        plotV(VM(indRim,:),'k-','LineWidth',4);
+        plotV(V1,'k-','LineWidth',4);
+                
         axisGeom; axis off;
         camlight headlight;   
         drawnow;
-
+  
         % Join and merge surfaces
-        [FM,VM]=joinElementSets({fliplr(Fm),Fm3,Fb1,Fb2,Fb3,fliplr(Fb4),fliplr(Fb5)},{Vm,Vm3,Vb1,Vb2,Vb3,Vb4,Vb5});
+        [FM,VM]=joinElementSets({FM,fliplr(F2),fliplr(F3)},{VM,V2,V3});
         [FM,VM]=patchCleanUnused(FM,VM);
         [FM,VM]=mergeVertices(FM,VM);
         
@@ -824,27 +951,13 @@ switch select_amputation_case
         %Visualization
         cFigure;hold on;
         
-        %gpatch(F_bone,V_bone,'w','none',0.5);        
+        gpatch(F_bone,V_bone,'w','none',0.25);
         gpatch(FM,VM,'w','none',0.5);        
         %patchNormPlot(FM,VM);
         
-        axisGeom;
+        axisGeom;axis off;
         camlight headlight;   
         drawnow;       
- 
-        %Visualization
-        cFigure; hold on;
-        gpatch(FM,VM,'w','k',1); 
-        patchNormPlot(FM,VM);
-        gpatch(F_bone,V_bone,'w','k',1);
-        %patchNormPlot(F_bone,V_bone);
-        gpatch(F_cylinder,V_cylinder1,'w','k',1);
-        patchNormPlot(F_cylinder,V_cylinder1);
-        gpatch(F_cylinder,V_cylinder2,'w','k',1);
-        patchNormPlot(F_cylinder,V_cylinder2);
-        axisGeom; axis off; axis manual; camlight headligth;
-        set(gca,'FontSize',25);
-        drawnow;
 
         %% Cut the mould into two parts for the nylon 3d printing
         snapTolerance=mean(patchEdgeLengths(FM,VM))/100; %Tolerance for surface slicing
@@ -867,9 +980,7 @@ switch select_amputation_case
         hold on;
         gpatch(FM1,VM1,'w','none',0.25);
         gpatch(FMM,VMM,'bw','k',1);
-        patchNormPlot(FMM,VMM);
-        
-        
+        patchNormPlot(fliplr(FMM),VMM);
         axisGeom; axis manual; camlight headligth;
         colormap gjet;
         set(gca,'FontSize',25);
@@ -877,30 +988,30 @@ switch select_amputation_case
         subplot(1,2,2); hold on;
         gpatch(FM2,VM2,'w','none',0.25);
         gpatch(FMM,VMM,'bw','k',1);
-        patchNormPlot(fliplr(FMM),VMM);
+        patchNormPlot(FMM,VMM);
         axisGeom; axis manual; camlight headligth;
         colormap gjet;
         set(gca,'FontSize',25);
         drawnow;
-        
-        [FM1,VM1]=joinElementSets({FM1,FMM},{VM1,VMM});
+
+        [FM1,VM1]=joinElementSets({FM1,fliplr(FMM)},{VM1,VMM});
         [FM1,VM1]=patchCleanUnused(FM1,VM1);
         [FM1,VM1]=mergeVertices(FM1,VM1);
         
-        [FM2,VM2]=joinElementSets({FM2,fliplr(FMM)},{VM2,VMM});
+        [FM2,VM2]=joinElementSets({FM2,FMM},{VM2,VMM});
         [FM2,VM2]=patchCleanUnused(FM2,VM2);
         [FM2,VM2]=mergeVertices(FM2,VM2);
 
         cFigure; hold on;
         gpatch(FM1,VM1,'w','k',1);
-        %patchNormPlot(FM1,VM1);
+        patchNormPlot(FM1,VM1);
         axisGeom; axis off; axis manual; camlight headligth;
         set(gca,'FontSize',25);
         drawnow;
         
         cFigure; hold on;
         gpatch(FM2,VM2,'w','k',1);
-        %patchNormPlot(FM2,VM2);
+        patchNormPlot(FM2,VM2);
         axisGeom; axis off; axis manual; camlight headligth;
         set(gca,'FontSize',25);
         drawnow;
@@ -922,24 +1033,8 @@ switch select_amputation_case
                     VT_mold{3}=VM2;
                     CT_mold{3}=3*ones(size(FM2,1),1);
                     
-                    FT_mold{4}=F_cylinder;
-                    VT_mold{4}=V_cylinder1;
-                    CT_mold{4}=4*ones(size(F_cylinder,1),1);
-                    
-                    FT_mold{5}=fliplr(F_cylinder);
-                    VT_mold{5}=V_cylinder2;
-                    CT_mold{5}=5*ones(size(F_cylinder,1),1);
-
                     saveName_mat=fullfile(saveFolder_mat,[saveNameGeom_tf,'.mat']);
                     save(saveName_mat,'FT_mold','VT_mold','CT_mold');
-                    
-%                     stlStruct.solidNames={'Muslce_phantom'};
-%                     stlStruct.solidVertices={VM};
-%                     stlStruct.solidFaces={FM};
-%                     stlStruct.solidNormals={[]};
-%                     fileName=fullfile(saveFolder_stl,'phantom_muscle.stl');
-%                     export_STL_txt(fileName,stlStruct);
-            
             end
         end
         
